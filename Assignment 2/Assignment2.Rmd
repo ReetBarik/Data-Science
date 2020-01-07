@@ -1,0 +1,257 @@
+---
+title: 'CPT_S 575 Data Science: Assignment 2'
+author: "Reet Barik"
+date: "September 9, 2019"
+output: word_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Excercise 1  
+
+(a) Use the read.csv() function to read the data into R, or the csv library to read in the
+data with python. In R you will load the data into a dataframe. In python you may store it as a list
+of lists or use the pandas dataframe. Call the loaded data college. Ensure that your column
+headers are not treated as a row of data.  
+
+
+```{r setup , include=TRUE}
+college = read.csv("https://scads.eecs.wsu.edu/wp-content/uploads/2017/09/College.csv")
+head(college)
+```
+
+```{r ,include=FALSE}
+library(ggplot2)
+head(college)
+# college [row, column]
+
+```
+(b) Find the median cost of books for all schools in this dataset.
+
+
+```{r ,  include=TRUE}
+books = summary(college$Books)
+books['Median']
+```
+
+
+(c) Produce a scatterplot that shows a relationship between two features of your choice in
+the dataset. Ensure it has appropriate axis labels and a title.
+  
+Relationship between Acceptence and Applications :
+
+```{r, echo=FALSE}
+aspect_ratio = 2.5
+scatter_plot = ggplot(college, aes(x=Apps,y=Accept)) +
+  geom_point(aes(alpha = 0.05 ))
+print(scatter_plot + ggtitle("Accept vs Apps"))
+
+```
+
+(d) Produce a histogram showing the overall enrollment numbers (P.Undergrad plus
+F.Undergrad) for both public and private (Private) schools. Ensure it has appropriate axis labels
+and a title.
+
+  Adding both the fields P.Undergrad and F.undergrad gives us the overall enrollment
+```{r}
+enrollTotal = college$P.Undergrad+college$F.Undergrad
+```
+  Splitting public and private colleges
+```{r}
+pub = which(college$Private=="No")
+pri = which(college$Private =="Yes")
+```
+
+Overall Enrollment plots
+```{r}
+par(mfcol = c(1,2))
+hist(enrollTotal[pub], col="light Blue", main="Public Enrollment", xlab="Enrollment", ylab="Value")
+hist(enrollTotal[pri],  col="light Blue", main="Private Enrollment", xlab="Enrollment", ylab="Value")
+```
+
+(e) Create a new qualitative variable, called Top, by binning the Top25perc variable into
+two categories. Specifically, divide the schools into two groups based on whether or not the
+proportion of students coming from the top 25% of their high school classes exceeds 50%.
+Now produce side-by-side boxplots of acceptance rate (based on Accept and Apps) with respect
+to the two Top categories (Yes and No). How many top universities are there? 
+
+
+
+```{r}
+top = rep("No",nrow(college))
+top[college$Top25perc > 50] = "Yes"
+top= as.factor(top)
+college = data.frame(college, top)
+summary(college$top)
+```
+
+Acceptance and Applications for Top
+
+```{r}
+par(mfcol = c(1,2))
+
+topUni = boxplot(college$Accept ~ college$top, col = "light blue", main = "Accept Vs Top", xlab = "Top", ylab = "Accept", ylim = c(0, 8000))
+boxplot(college$Apps ~ college$top, col = "light blue", main = "Apps Vs Top", xlab = "Top", ylab = "Apps",  ylim = c(0, 12000))
+
+```
+
+From the above, it is observed that number of top universities are 449.
+
+
+(f) Continue exploring the data, producing two or more new plots of any type, and
+provide a brief summary of your hypotheses and what you discover. You may use additional
+plots or numerical descriptors as needed. Feel free to think outside the box on this one but if you
+want something to point you in the right direction, look at the summary statistics for various
+features, and think about what they tell you. Perhaps try plotting various features from the
+dataset against each other and see if any patterns emerge.
+
+The following 4 histograms show us the frequency distrbution over the variables 'Top10perc', 'Apps', 'Personal' and 'PhD'. This gives us some idea of the demographic of the total college population in terms of the mentioned features.  
+
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+
+hist(college$Top10perc, breaks=10, col="light Blue", xlab="Top10perc", main="% of Top10 H.S. Students")
+hist(college$Apps, breaks=10, col="light Blue", xlab="Apps", main="# of New Applications Received")
+hist(college$Personal, breaks=10, col="light Blue", xlab="Expenditure", main="Estimated Personal Spending")
+hist(college$PhD, breaks=10, col="light Blue", xlab="PhD", main="% of Faculty with Ph.D.'s")
+```
+
+
+## Excercise 2  
+
+Handling missing values using na.strings parameter and na.omit function
+```{r}
+auto = read.csv("https://scads.eecs.wsu.edu/wp-content/uploads/2017/09/Auto.csv",
+na.strings = "?")
+auto <- na.omit(auto)
+head(auto)
+```
+
+(a) Specify which of the predictors are quantitative, and which are qualitative? Keep in
+mind that a qualitative variable may be represented as a quantitative type in the dataset, or the
+reverse. You may wish to adjust the types of your variables based on your findings.
+
+Quantitative varibles are numeric while qulitative variables are descriptions, which categorizes the data
+
+* Quantitative variables
+    + mpg
+    + Cylinders
+    + Displacement
+    + Horsepower
+    + Weight
+    + Acceleration
+    + Year
+    + Origin
+* Qualitative variables
+    + Name
+  
+
+(b) What is the range, mean and standard deviation of each quantitative predictor?
+
+  Range:
+```{r}
+sapply(auto[, -9], range)
+```
+
+Mean:
+```{r}
+sapply(auto[, -9], mean)
+```
+
+Standard Deviation:
+
+```{r}
+sapply(auto[, -9], sd)
+```
+
+
+(c) Now remove the 45th through 85th (inclusive) observations from the dataset. What is
+the range, mean, and standard deviation of each predictor in the subset of the data that remains?
+
+
+```{r}
+auto_d = auto[-c(45:85), -9]
+```
+
+Range:
+
+```{r}
+sapply(auto_d, range)
+```
+
+
+Mean:
+
+```{r}
+sapply(auto_d, mean)
+```
+
+
+Standard Deviation:
+
+```{r}
+sapply(auto_d, sd)
+```
+
+
+(d) Using the full data set, investigate the predictors graphically, using scatterplots,
+correlation scores or other tools of your choice. Create some plots highlighting the relationships
+you find among the predictors. Explain briefly what the relationships between variables are, and
+what they mean.
+
+
+
+```{r}
+pairs(auto)
+```
+
+From the scatterplots, we find that there might be a relationship between the following features:
+ * mpg vs displacement
+ * mpg vs horsepower
+ * mpg vs weight
+ * weight vs horsepower
+ * weight vs displacement
+ * horsepower vs displacement
+ * acceleration vs horsepower
+
+Taking a closer look at the dependence between 'mpg' and other features:
+
+```{r, echo=FALSE}
+scatter_plot = ggplot(auto, aes(x=auto$displacement,y=auto$mpg)) +
+  geom_point() +  geom_smooth()
+print(scatter_plot + ggtitle("Mpg vs Displacement"))
+```
+
+```{r, echo=FALSE}
+scatter_plot = ggplot(auto, aes(x=auto$horsepower,y=auto$mpg)) +
+  geom_point() +  geom_smooth()
+print(scatter_plot + ggtitle("Mpg vs Horsepower"))
+```
+
+```{r, echo=FALSE}
+scatter_plot = ggplot(auto, aes(x=auto$weight,y=auto$mpg)) +
+  geom_point() +  geom_smooth()
+print(scatter_plot + ggtitle("Mpg vs Weight"))
+```
+
+From the following plot, we also see that acceleration and horsepower are inversely proportional: 
+
+```{r, echo=FALSE}
+scatter_plot = ggplot(auto, aes(x=auto$acceleration,y=auto$horsepower)) +
+  geom_point() +  geom_smooth()
+print(scatter_plot + ggtitle("Acceleration vs Horsepower"))
+
+```
+
+This seems to follow basic physics which says that at lower gears, where horsepower is more, acceleration is less.
+
+
+
+(e) Suppose that we wish to predict gas mileage (mpg) on the basis of the other variables.
+Which, if any, of the other variables might be useful in predicting mpg? Justify your answer.
+
+Horsepower, cylinders, year and origin can be used as predictors for mpg. Displacement and Weight can not
+be used as they are highly correlated to each other and to horsepower as seen from the scatterplot.

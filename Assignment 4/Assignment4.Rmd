@@ -1,0 +1,188 @@
+---
+title: 'CPT_S 575 Data Science: Assignment 3'
+author: "Reet Barik"
+date: "October 10, 2019"
+output: word_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Question 1
+
+```{r}
+library(latexpdf)
+library(MASS)
+library(ISLR)
+auto_df <- read.csv("https://scads.eecs.wsu.edu/wp-content/uploads/2017/09/Auto.csv", na.strings = "?")
+auto_df <- na.omit(auto_df)
+```
+
+
+#### (a) Produce a scatterplot matrix which includes all the variables in the data set.
+```{r}
+pairs(subset(auto_df, select=-c(name)))
+```
+
+<br>
+
+#### (b) Compute the matrix of correlations between the variables. You will need to exclude the name variable, which is qualitative.
+
+```{r}
+cor(subset(auto_df, select=-c(name)))
+```
+
+<br>
+
+#### (c) Perform a multiple linear regression with mpg as the response and all other variables except name as the predictors. Show a printout of the result (including coefficient, error and t values for each predictor). Comment on the output: i. Which predictors appear to have a statistically significant relationship to the response, and how do you determine this? ii. What does the coefficient for the displacement variable suggest, in simple terms?
+
+
+```{r}
+auto.fit = lm(mpg~.-name, data=auto_df)
+summary(auto.fit)
+```
+
+(i) Displacement, weight, year and origin are four predictors which have a statistically significant relationship to the response. This is determined by their low p-values (<0.01).
+(ii) Assuming that all the predictors are uncorrelated, the coefficient for the displacement variable, in simple terms suggests that for each unit increase in displacement there is 0.019896 unit change in the 'mpg' variable, while all the other variables stay fixed.
+
+<br>
+
+#### (d) Produce diagnostic plots of the linear regression fit. Comment on any problems you see with the fit. Do the residual plots suggest any unusually large outliers? Does the leverage plot identify any observations with unusually high leverage?
+
+```{r}
+par(mfrow=c(2,2))
+plot(auto.fit)
+```
+
+
+In the Residuals vs Fitted plot there are a few outliers lying outside the [-3, 3] range on the residual axis (in particular, point 323, 326, and 327 can be considered as unusually high outliers).
+Point 14 shows high leverage for this model as can be seen in the Residuals vs Leverage plot.
+
+<br>
+
+#### (e) Fit linear regression models with interaction effects. Do any interactions appear to be statistically significant?
+
+ 
+```{r}
+summary(lm(mpg ~ weight*displacement  + (weight*cylinders) + 
+             cylinders*displacement, data=auto_df))
+```
+
+The interaction between weight and displacement is the only statistically significant 2nd order term in this model. Other interactions like (weight, cylinders) and (displacement, cylinders) are statistically insignificant.
+
+<br>
+
+#### (f) Try transformations of the variables with X^3 and log(X). Comment on your findings.
+
+```{r}
+auto.pow_transform_fit=lm(mpg~.,data=subset(auto_df, select=-c(name))^3)
+summary(auto.pow_transform_fit)
+```
+
+If we construct a multiple linear regression model with each predictor variable X transformed as X^3, the R^2 value decreases which shows a poor fit of this model compared to the original.
+<br>
+
+```{r}
+auto.log_transform_fit=lm(mpg~.,data=log(subset(auto_df, select=-c(name))))
+summary(auto.log_transform_fit)
+```
+
+Log transform seems better (for multiple linear regression) as it increase the R^2 coefficient. The statistically significant predictors change in this case as compared to the original.
+
+We also look at the residuals vs fitted plot given below to justify that the model with log-transformed variables is a better fit since the trend is almost horizontal.
+```{r}
+par(mfrow=c(2,2))
+plot(auto.log_transform_fit)
+```
+
+<br>
+
+### Question 2
+```{r}
+suppressMessages(library(MASS))
+attach(Boston)
+boston_df <- na.omit(Boston)
+```
+
+#### (a) For each predictor, fit a simple linear regression model to predict the response. Include the code, but not the output for all models in your solution. In which of the models is there a statistically significant association between the predictor and the response? Considering the meaning of each variable, discuss the relationship  between crim and nox, chas, medv and dis in particular. How do these relationships differ?
+
+```{r}
+for (n in names(Boston)){
+  lin_reg_models <- list()
+  if (n!='crim'){
+    lin_reg_models[[n]] <- (lm(crim~get(n), data=Boston))
+  }
+}
+```
+
+All variables other than 'chas' is statistically significant w.r.t. the response variable 'crim' because the p-values for the coefficients of all these variables is significantly low. 
+According to the linear prediction model:
+
+(1) A high coefficient (31.249) for nox predictor implies that the per capita crime rate increases significantly with the increase in nitrogen oxides concentration in the air. Increase in Nitrogen oxide (harmful pollutant) content might lead to adverse living conditions but the relation between crime rate and bad living conditions is not necessarily an established one.
+
+(2) There is no statistically significant relationship between crime rate and Charles River dummy variable. This tracks because both the variables seems unrelated.
+
+(3) The crime rate decreases with the increase in median value of owner-occupied homes as the coefficient for 'medv' variable is statistically significant.
+
+(4) The crime rate increase with the decrease in distance from Boston's employment centers ('dis' variable). This relationship goes against common sense because more employment opportunities tends to result in a decrease in crime rate in general. This suggests that we should consider some interactions among the predictor variables.
+
+<br>
+
+#### (b) Fit a multiple regression model to predict the response using all the predictors. Describe your results. For which predictors can we reject the null hypothesis?
+
+```{r}
+summary(lm(crim~., data=Boston))
+```
+
+We reject the null hypothesis for 'zn', 'dis', 'rad', 'black', and 'medv' because their coefficients have statistically significant p-values(<0.05).
+
+<br>
+
+#### (c) How do your results from (a) compare to your results from (b)? Create a plot displaying the univariate regression coefficients from (a) on the x-axis, and the multiple regression coefficients from (b) on the y-axis. That is, each predictor is displayed as a single point in the plot. Its coefficient in a simple linear regression model is shown on the x-axis, and its coefficient estimate in the multiple linear regression model is shown on the y-axis. What does this plot tell you about the various predictors?
+
+```{r}
+linear_coeff <- list()
+for(n in names(Boston[-1])){
+  linear_coeff[[n]] <- lm(crim~get(n), data=Boston)$coefficients[2]
+}
+multiple_coeff <- lm(crim~., data=Boston)$coefficients[-1]
+plot(linear_coeff, multiple_coeff, 
+     xlab='Linear Regression coefficient', 
+     ylab='Multiple Regression coefficient')
+```
+
+The plot suggests following points about the two models:
+
+(1) The magnitude of  multiple linear regression coefficients  for most of the predictors (nox -> outlier) remains within a small range of their respective linear regression coefficients.
+
+(2) The sign of the coefficients remains same for statistically significant predictors of multiple simple regression model (i.e. 'dis', 'rad', 'black', and 'medv') while the sign of most other predictors change when going from simple to multiple linear regression. This shows that it is important to take into account the interactions within the various predictors.
+
+<br>
+
+#### (d) Is there evidence of non-linear association between any of the predictors and the response?
+```{r}
+for (n in names(Boston[-1])){
+    non_linear_models <- list()
+    if (n!='chas'){
+      non_linear_models[[n]] <- lm(crim~poly(get(n), 3), data=Boston)
+  }
+}
+```
+
+There is no non-linear relationship between 'black' variable and the response as signified by the high p-values for 2nd and 3rd order coefficients. Some variables like 'nox', 'indus', 'dis', 'age', 'ptratio' and 'medv' show 3rd order relationship with 'crim' variable while 'zn', 'rad', 'tax', 'rm' and 'lstat' shows 2nd order relationship.
+
+
+
+### Question 3
+
+#### (a) What are the issues that could arise in using linear regression (via least squares estimates) when error terms are correlated?  
+i) Regression coefficient represents the rate of change of one variable as a function of changes in the other.
+When errors are correlated, the regression coefficients are unbiased but they no longer have minimum variance.
+ii) The standard error of the coefficient measures how precisely the model estimates the coefficient’s unknown value. A precise estimate has a low standard error. When errors are correlated, standard errors estimated will be far less than they actually are. This will make the results seem more accurate than they really are.
+iii) Confidence intervals are a measure of overall quality of regression. These intervals and other tests of
+significance will no longer be valid as the confidence interval will narrow down. Thus we may have an unwarranted sense of confidence in the model.
+<br>
+
+#### (b) What methods can be applied to deal with correlated errors? Mention at least one method.
+The major issue in least squares estimates was the standard errors calculation, and hence we could employ other errors like Newey-West standard errors. We could also use other linear estimators (like feasible general least sqaures (f-GLS)) which are better than ordinary least squares.
+The other way of tackling would be to apply transformation, where we transform the response Y using a concave function such as log Y. This results in shrinkage of the larger response. If we have a good idea of the variance of each response, we can fit our model by weighted least squares. weighted least squares is a simple remedy to fit the model with weights proportional to the inverse variances. This would reduce the variance and correlation among the error terms. Sometimes correlation is due to the omission of a variable from the model. Thus uncovering this variable would solve this issue.

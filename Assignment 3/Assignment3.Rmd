@@ -1,0 +1,235 @@
+---
+title: 'CPT_S 575 Data Science: Assignment 3'
+author: "Reet Barik"
+date: "September 19, 2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercise 1
+
+
+Print the first few values of the columns with a header including "sleep". (head(), head())
+
+```{r, echo=FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+msleep <- read.csv("https://scads.eecs.wsu.edu/wp-content/uploads/2017/10/msleep_ggplot2.csv")
+head(msleep)
+```
+
+
+a) Count the number of animals which weigh under 50 kilograms and sleep more than 16 hours a day. (filter(), query())
+
+```{r}
+nrow(filter(msleep, bodywt < 50, sleep_total > 16))
+```
+7 animals weigh under 50 kilograms and sleep for more than 16 hours
+
+
+b) Print the name, order, sleep time and bodyweight of the animals with the 5 longest sleep times, in order of sleep time. (select(), arrange(), loc(), sort_values())
+
+```{r}
+part_b = select(msleep, name, sleep_total, order, bodywt)
+sleep_descending =  arrange(part_b, desc(sleep_total))
+head(sleep_descending,5)
+```
+
+
+c) Add two new columns to the dataframe; wt_ratio with the ratio of brain size to body weight, rem_ratio with the ratio of rem sleep to sleep time. If you think they might be useful, feel free to extract more features than these, and describe what they are. (mutate(), assign())
+
+
+```{r}
+msleep_ratio = mutate(msleep, wt_ratio = brainwt/bodywt, rem_ratio = sleep_rem/sleep_total)
+head(msleep_ratio[c('wt_ratio','rem_ratio')])
+```
+
+
+d) Display the average, min and max sleep times for each order. (group_by(), summarise(), groupby(), agg())
+
+```{r}
+groupDF = group_by(msleep,order)
+summarize(groupDF, average_sleep = mean(sleep_total),
+          min_sleep = min(sleep_total),
+          max_sleep = max(sleep_total))
+```
+
+
+e) Impute the missing brain weights as the average wt_ratio for that animal's order times the animal's weight. Make a second copy of your dataframe, but this time impute missing brain weights with the average brain weight for that animal's order. What assumptions do these data filling methods make? Which is the best way to impute the data, or do you see a better way, and why? You may impute or remove other variables as you find appropriate. Briefly explain your decisions. (group_by(), mutate(), groupby(),assign())
+
+Imputing missing brain weights wtih (average weight ratio * body weight) of the animal:
+
+```{r}
+method1 = msleep_ratio
+method1 = method1 %>%
+              select(name, order, brainwt, bodywt, wt_ratio) %>%
+              group_by(order) %>%
+              mutate(avg_wt_ratio=mean(wt_ratio, na.rm=TRUE)) %>%
+              mutate(brainwt = ifelse(is.na(brainwt),avg_wt_ratio*bodywt,brainwt))
+head(method1)
+
+```
+
+Imputing missing values of brain weights with average brain weight:
+
+```{r}
+method2 = msleep_ratio
+method2 = method2 %>%
+               select(name, order, brainwt, bodywt, wt_ratio) %>%
+               mutate(avg_brainwt =mean(wt_ratio, na.rm=TRUE)) %>%
+               mutate(brainwt=ifelse(is.na(brainwt),avg_brainwt,brainwt))
+head(method2)
+```
+
+
+I believe that replacing NA with the product of average brain weight and body weight (method1) takes into account another feature of the animal which is logically related to the feature with the missing values. It seems more sensible than just substituting the average brain weight.
+
+
+
+## Question 2
+
+
+```{r}
+library("tidyr")
+who_tidy = tidyr::who
+who1 <- who_tidy %>%
+  gather(key, value, new_sp_m014:newrel_f65, na.rm = TRUE) %>% 
+  mutate(key = stringr::str_replace(key, "newrel", "new_rel")) %>%
+  separate(key, c("new", "Type", "sexage")) %>% 
+  select(-new, -iso2, -iso3) %>% 
+  separate(sexage, c("sex", "age"), sep = 1)
+
+who1
+```
+ 
+
+a) Explain why this line " mutate(key = stringr::str_replace(key, "newrel", "new_rel"))" is necessary to properly tidy the data. What happens if you skip this line?
+
+The names become inconsistent because of newrel. All other values are in the form new_type. So while separating the new or old from the type, r would not be able to recognize where to separate the two as the sep factor provided in ‘_’. Thus, this step is necessary to tidy the data.
+
+If this step was skipped, the ‘new’ would not have been separated from the ‘rel’ and the type column could
+have had NA entries, causing inconsistencies. Thus, newrel is replaced with new_rel.
+
+
+b) How many entries are removed from the dataset when you set na.rm to true in the gather
+command (in this dataset)?
+
+```{r}
+sum(is.na(who_tidy))
+
+```
+Number of entries removed from dataset: 329394
+
+c) Explain the difference between an explicit and implicit missing value, in general. Can you find any implicit missing values in this dataset, if so where?
+
+An **explicit** missing value is flagged as NA whereas an **implicit** missing value is simply not present in the data.
+
+
+````{r}
+who_tidy %>% 
+  group_by(country) %>%
+  summarise(min = min(year), max = max(year), distinct_years = n_distinct(year)) %>%
+  filter(min != 1980 | max != 2013 | distinct_years != 34)
+
+```
+
+d) Looking at the features (country, year, var, sex, age, cases) in the tidied data, are they all appropriately typed? Are there any features you think would be better suited as a different type? Why or why not?
+
+```{r}
+who1
+```
+  
+  * Country gives us the country of origin of the person
+  * Year gives us the year in which tuberculosis was diagoised
+  * Type gives us type of tuberculosis
+  * sex gives us the gender of the person
+  * age gives the age of the person diagnosed
+  * value gives us a count of the number of cases. 
+  
+
+  
+e) Explain in your own words what a gather operation is and give an example of a situation
+when it might be useful. Do the same for spread.
+
+Gather is basically used to push data in columns into rows. It gathers multiple columns into key - value pairs.
+This function is needed when columns are not variables.
+The syntax of gather function is: gather(data, key = “key”, value = “value”, . . . , na.rm = FALSE, convert =
+FALSE, factor_key = FALSE
+For example, The column of a table are: ‘Year, quarter1, quarter2, quarter3, quarter4’ and the rows mention
+the year and give the revenue of each quarter. Using gather here to update the rows as Year, Quarter,
+Revenue makes more sense and the data looks more tidy and readable.
+Spread is complementary to the gather function. It spreads key-value pairs across multiple columns.
+The syntax of spread function is: spread(data, key, value, fill = NA, convert = FALSE, drop = TRUE, sep =
+NULL)
+This can be used to spread the revenue values in multiple quarter columns. This would get back the original
+table.
+
+
+f) Generate an informative visualization, which shows something about the data. Give a brief description of what it shows, and why you thought it would be interesting to investigate.
+
+Cases per country is analysed:
+
+```{r, echo=FALSE}
+country_cases <- who1 %>% group_by(country) %>% summarise(sum_cases = sum(value))
+order_country <- country_cases %>% arrange(desc(sum_cases))
+top <- head(order_country)
+ggplot(top , aes(x = country, y = sum_cases)) + labs(title= "Cases per country") + geom_point()
+```
+
+We can see that China has the highest number of cases followed by India.
+
+Cases per year is analysed:
+
+```{r, echo=FALSE}
+year_cases <- who1 %>% group_by(year) %>% summarise(sum_cases = sum(value))
+order_year <- year_cases %>% arrange(desc(sum_cases))
+top_year <- head(order_year)
+ggplot(top_year , aes(x = year, y = sum_cases)) + labs(title= "Cases per year") + geom_point()
+
+```
+
+There was a drastic drop of cases in 2008, after which the number of cases have increased and remained high.
+
+
+g) Suppose you have the following dataset called siteDemo:
+Site U30.F U30.M O30.F O30.M
+facebook 32 31 60 58
+myspace 1 5 3 6
+snapchat 6 4 3 2
+twitter 17 23 12 17
+You know that the U30.F column is the number of female users under 30 on the site,
+O30.M denotes the number of male users 30 or older on the site, etc. Construct this table,
+and show the code you would use to tidy this dataset (using gather(), separate() and
+mutate() or melt(), pivot(), and assign()) such that the columns are organized as: Site,
+AgeGroup, Gender and Count.
+
+```{r}
+a = c("facebook","myspace", "snapchat", "twitter"  )
+b = c( 32, 31, 60,58)
+c = c( 1, 5, 3, 6)
+d = c( 6, 4, 3,2)
+e = c( 17, 23, 12,17)
+siteDemo = data.frame( "Site" = a, "U30.F" = b, "U30.M" = c, "O30.F" = d,"O30.M" = e)
+siteDemo
+```
+
+
+```{r}
+siteDemo_tidy = siteDemo %>%
+  gather(key, count, U30.F:O30.M) %>%
+  separate(key, c("ageGroup", "gender")) %>% 
+  mutate(ageGroup = stringr::str_replace(ageGroup, "U30", "under 30")) %>%
+  mutate(ageGroup = stringr::str_replace(ageGroup, "O30", "Over 30")) %>%
+  mutate(gender = stringr::str_replace(gender, "F", "Female")) %>%
+  mutate(gender = stringr::str_replace(gender, "M", "Male"))
+
+siteDemo_tidy
+```
+
+

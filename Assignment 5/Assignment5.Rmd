@@ -1,0 +1,184 @@
+---
+title: 'CPT_S 575 Data Science: Assignment 5'
+author: "Reet Barik"
+date: "October 21, 2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+## Question 1
+
+a. Estimate the probability that a student who studies for 32 h, has a PSQI score of 12 and has an undergrad GPA of 3.0 gets an A in the class. Show your work.
+```{r}
+p = function(x1,x2,x3){ z = exp(-7 + 0.1*x1 + 1*x2 - 0.04*x3); return( round(z/(1+z),4))}
+p(32,3.0,12)
+```
+ 
+The chance of a student who studied 32 hours, has a PSQI score of 12 and has undergraduate GPA of 3.0 gets an A in the class is 0.217. 
+
+b. How many hours would the student in part (a) need to study to have a 50 % chance of getting an A in the class? Show your work.
+```{r}
+hours = seq(32,50,1)
+probs = mapply(hours, 3.0, 12, FUN=p)
+names(probs) = paste0(hours,"h")
+probs
+```
+
+It is observed that the student needs to study around 44 to 45 hours to have a 50% chance of getting an A
+ 
+c. How many hours would a student with a 3.0 GPA and a PSQI score of 3 need to study to have a 50 % chance of getting an A in the class? Show your work.
+```{r}
+hours1 = seq(32,45,1)
+probs1 = mapply(hours1, 3.0, 3, FUN=p)
+names(probs1) = paste0(hours1,"h")
+probs1
+```
+
+It is observed that the student needs to study around 41 to 42 hours to have a 50% chance of getting an A with a PSQI score of 3.
+
+
+## Question 2
+
+```{r}
+library(jsonlite)
+library(plyr)
+require(dplyr)
+library(curl)
+library(RCurl)
+
+```
+
+a. Data collection (5%)
+
+```{r}
+api = 'https://content.guardianapis.com/search?'
+key = '9e999f2b-baa3-45e6-87c1-ab38cbc3c9e0'
+url_test ="https://content.guardianapis.com/search?&section=technology&page-size=100&show-fields=body&api-key=9e999f2b-baa3-45e6-87c1-ab38cbc3c9e0"
+
+webdata = getURL(url_test)
+categories_df = fromJSON(webdata)
+lapply(categories_df,head)
+
+```
+
+```{r}
+sections = c('world','science', 'business','technology','sport','politics')
+fields = 'body'
+pagesize = '100'
+pages = 10
+results = data.frame()
+for(iter in 1:7) {
+  for(section in sections){
+    url = paste(api, '&section=' , section, '&page-size=', pagesize,'&show-fields=', fields,'&api-key=', key, sep ="" )
+    json = fromJSON(url)
+    data = as.data.frame(json$response$results, flatten= TRUE)
+    set = as.data.frame(json$response$results$fields$body, flatten = TRUE)
+    data = subset(data, select = -c(fields))
+    res = cbind(data,set)
+    results = rbind(results, res)
+    print (url)
+  }
+}
+colnames(results)[colnames(results) == 'json$response$results$fields$body'] = 'body'
+```
+
+
+```{r}
+str(results)
+number_of_articals = nrow(results)
+
+```
+
+b. Data cleaning (5%)
+
+
+```{r}
+
+results$body = gsub("<.*?>", "", results$body) 
+results$body = gsub("[[:punct:]]", "", results$body)
+results$body = gsub("[[:digit:]]", "", results$body)
+results$body = tolower(results$body)
+
+apply(results, 2, function(x) any(is.na(x)))
+
+number_of_articals 
+r_num = sample(1:number_of_articals, 1)
+results$body[r_num]
+```
+
+c. Tokenization (25%)
+
+```{r}
+suppressMessages(library(quanteda))
+doc.corpus <- corpus(results$body)
+
+# tokenization
+doc.tokens <- tokens(doc.corpus)
+doc.tokens <- tokens(doc.tokens, remove_punct = TRUE,
+
+remove_numbers = TRUE)
+
+# removing stopwords
+doc.tokens <- tokens_select(doc.tokens, stopwords('english'),selection='remove')
+# stemming
+doc.tokens <- tokens_wordstem(doc.tokens)
+doc.dfm <- dfm(doc.tokens)
+# doc.dfm is a very sparse matrix (99% sparse)
+# we keep only words occurring frequently (top 20%)
+feature_matrix <- dfm_trim(doc.dfm, min_docfreq = 100,
+
+min_termfreq = 0.2, termfreq_type = "quantile")
+
+# feature vector of random sample from (b)
+as.vector(feature_matrix[r_num, ])
+
+```
+
+
+d. Classification
+
+
+```{r}
+library(tidytext) 
+library(caret) 
+library(e1071)
+
+#splitting to train adn test data
+# 80% to train data 
+matrix = as.matrix(feature_matrix)
+cor_Matrix = cor(matrix)
+# find highly correlated features(>=0.8)
+cor_col_indices <- findCorrelation(cor_Matrix, cutoff = 0.80)
+# removing highly correlated features
+matrix <- matrix[, -c(cor_col_indices)]
+train_size <- floor(0.80 * nrow(matrix)) # 80%-20% split for training and testing
+train_x <- matrix[1:train_size,]
+train_y <- as.factor(results[1:train_size,]$sectionId)
+test_x <- matrix[(train_size+1):nrow(matrix),]
+test_y <- as.factor(results[(train_size+1):nrow(matrix),]$sectionId)
+naive_bayes_model <- naiveBayes(train_x, train_y)
+predictions <- predict(naive_bayes_model, test_x)
+# confusion matrix generated on predictions
+conf_matrix <- confusionMatrix(predictions, test_y)
+conf_matrix
+
+```
+
+
+```{r}
+#precision for each class
+precision = conf_matrix$byClass[1:6,3]
+print ('Precision:')
+precision
+
+#recall
+recall <- conf_matrix$byClass[1:6, 1]
+print("Recall:")
+recall
+```
+
